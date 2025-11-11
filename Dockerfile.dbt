@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+# Install system dependencies including Postgres client
+RUN apt-get update && \
+    apt-get install -y git curl build-essential libpq-dev postgresql-client && \
+    apt-get clean
+
+# Install dbt
+RUN pip install --no-cache-dir dbt-core dbt-postgres
+
+# Set working directory
+WORKDIR /usr/app
+
+# Default command (will be overridden by docker-compose)
+CMD ["bash"]

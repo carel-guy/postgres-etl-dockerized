@@ -1,4 +1,3 @@
-version : '3.8'
 
 services:
   source_postgres:
@@ -6,7 +5,7 @@ services:
     ports:
       - "5433:5432"
     networks:
-      - etl_network
+      - elt_network
     environment:
       - POSTGRES_DB=source_db
       - POSTGRES_USER=root
@@ -19,7 +18,7 @@ services:
     ports:
       - "5434:5432"
     networks:
-      - etl_network
+      - elt_network
     environment:
       - POSTGRES_DB=destination_db
       - POSTGRES_USER=root
@@ -31,11 +30,35 @@ services:
       dockerfile: Dockerfile
     command: ["python", "etl_script.py"]
     networks:
-      - etl_network
+      - elt_network
     depends_on:
       - source_postgres
       - destination_postgres
+
+  dbt:
+    build:
+      context: .
+      dockerfile:  Dockerfile.dbt
+    command: >
+      bash -c "
+        echo '⏳ Waiting for destination_postgres to be ready...' &&
+        until pg_isready -h destination_postgres -U root; do sleep 2; done &&
+        echo '✅ Database ready, running dbt...' &&
+        dbt run --profiles-dir /root/.dbt --project-dir /usr/app/postgres_etl_dbt
+      "
+    networks:
+      - elt_network
+    volumes:
+      - ./postgres_etl_dbt:/usr/app/postgres_etl_dbt
+      - ~/.dbt:/root/.dbt
+
+    depends_on:
+      - etl_script
+
+    environment:
+      DBT_PROFILE: default
+      DBT_TARGET: dev
     
 networks:
-  etl_network:
+  elt_network:
     driver: bridge
